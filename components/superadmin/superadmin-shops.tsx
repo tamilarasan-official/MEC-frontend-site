@@ -26,7 +26,9 @@ import {
   type Shop,
   type ShopCreateData,
   type ShopUpdateData,
+  type OwnerDetails,
 } from '@/lib/services/superadmin-api'
+import { Eye, EyeOff, User, Mail, Lock } from 'lucide-react'
 
 const shopIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   canteen: UtensilsCrossed,
@@ -49,6 +51,12 @@ interface ShopFormData {
   description: string
   category: ShopCategory
   contactPhone: string
+  // Owner details for new shop creation
+  createOwner: boolean
+  ownerName: string
+  ownerEmail: string
+  ownerPassword: string
+  ownerPhone: string
 }
 
 const initialFormData: ShopFormData = {
@@ -56,6 +64,11 @@ const initialFormData: ShopFormData = {
   description: '',
   category: 'canteen',
   contactPhone: '',
+  createOwner: true,
+  ownerName: '',
+  ownerEmail: '',
+  ownerPassword: '',
+  ownerPhone: '',
 }
 
 export function SuperAdminShops() {
@@ -78,6 +91,9 @@ export function SuperAdminShops() {
 
   // Success message
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
+
+  // Password visibility
+  const [showPassword, setShowPassword] = useState(false)
 
   // Fetch shops from API
   const fetchShops = useCallback(async () => {
@@ -188,6 +204,45 @@ export function SuperAdminShops() {
           setFormError(result.error || 'Failed to update shop')
         }
       } else {
+        // Validate owner details if creating owner
+        if (formData.createOwner) {
+          if (!formData.ownerName.trim()) {
+            setFormError('Owner name is required')
+            setFormLoading(false)
+            return
+          }
+          if (!formData.ownerEmail.trim()) {
+            setFormError('Owner email is required')
+            setFormLoading(false)
+            return
+          }
+          if (!formData.ownerPassword) {
+            setFormError('Owner password is required')
+            setFormLoading(false)
+            return
+          }
+          if (formData.ownerPassword.length < 8) {
+            setFormError('Password must be at least 8 characters')
+            setFormLoading(false)
+            return
+          }
+          if (!/[A-Z]/.test(formData.ownerPassword)) {
+            setFormError('Password must contain at least one uppercase letter')
+            setFormLoading(false)
+            return
+          }
+          if (!/[a-z]/.test(formData.ownerPassword)) {
+            setFormError('Password must contain at least one lowercase letter')
+            setFormLoading(false)
+            return
+          }
+          if (!/[0-9]/.test(formData.ownerPassword)) {
+            setFormError('Password must contain at least one number')
+            setFormLoading(false)
+            return
+          }
+        }
+
         // Create new shop
         const createData: ShopCreateData = {
           name: formData.name.trim(),
@@ -195,12 +250,25 @@ export function SuperAdminShops() {
           category: formData.category,
         }
 
+        // Add owner details if creating owner
+        if (formData.createOwner && formData.ownerEmail) {
+          createData.ownerDetails = {
+            name: formData.ownerName.trim(),
+            email: formData.ownerEmail.trim(),
+            password: formData.ownerPassword,
+            phone: formData.ownerPhone.trim() || undefined,
+          }
+        }
+
         const result = await createShop(createData)
 
-        if (result.success) {
+        if (result.success && result.data) {
           await fetchShops()
           if (refreshContextShops) refreshContextShops()
-          setSuccessMessage(`Shop "${formData.name}" created successfully`)
+          const ownerMsg = result.data.owner
+            ? ` Owner "${result.data.owner.name}" (${result.data.owner.email}) created.`
+            : ''
+          setSuccessMessage(`Shop "${formData.name}" created successfully.${ownerMsg}`)
           closeModal()
         } else {
           setFormError(result.error || 'Failed to create shop')
@@ -536,6 +604,117 @@ export function SuperAdminShops() {
                   {formData.description.length}/500
                 </p>
               </div>
+
+              {/* Owner Details Section - Only shown when creating new shop */}
+              {!editingShop && (
+                <div className="space-y-4 border-t border-border pt-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-medium text-foreground">Shop Owner</h4>
+                      <p className="text-xs text-muted-foreground">Create an owner account for this shop</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, createOwner: !formData.createOwner })}
+                      className={cn(
+                        'w-12 h-7 rounded-full flex items-center transition-colors',
+                        formData.createOwner ? 'bg-primary justify-end pr-1' : 'bg-muted justify-start pl-1'
+                      )}
+                    >
+                      <div className={cn(
+                        'w-5 h-5 rounded-full',
+                        formData.createOwner ? 'bg-white' : 'bg-card'
+                      )} />
+                    </button>
+                  </div>
+
+                  {formData.createOwner && (
+                    <div className="space-y-4 p-4 rounded-xl bg-muted/50 border border-border">
+                      {/* Owner Name */}
+                      <div>
+                        <label className="text-sm font-medium text-foreground mb-2 block">
+                          Owner Name <span className="text-destructive">*</span>
+                        </label>
+                        <div className="relative">
+                          <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          <input
+                            type="text"
+                            value={formData.ownerName}
+                            onChange={(e) => setFormData({ ...formData, ownerName: e.target.value })}
+                            placeholder="Enter owner's full name"
+                            required={formData.createOwner}
+                            className="w-full pl-11 pr-4 py-3 rounded-xl bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Owner Email */}
+                      <div>
+                        <label className="text-sm font-medium text-foreground mb-2 block">
+                          Owner Email <span className="text-destructive">*</span>
+                        </label>
+                        <div className="relative">
+                          <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          <input
+                            type="email"
+                            value={formData.ownerEmail}
+                            onChange={(e) => setFormData({ ...formData, ownerEmail: e.target.value })}
+                            placeholder="owner@example.com"
+                            required={formData.createOwner}
+                            className="w-full pl-11 pr-4 py-3 rounded-xl bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">This will be used for login</p>
+                      </div>
+
+                      {/* Owner Password */}
+                      <div>
+                        <label className="text-sm font-medium text-foreground mb-2 block">
+                          Owner Password <span className="text-destructive">*</span>
+                        </label>
+                        <div className="relative">
+                          <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          <input
+                            type={showPassword ? 'text' : 'password'}
+                            value={formData.ownerPassword}
+                            onChange={(e) => setFormData({ ...formData, ownerPassword: e.target.value })}
+                            placeholder="Create a strong password"
+                            required={formData.createOwner}
+                            minLength={8}
+                            className="w-full pl-11 pr-12 py-3 rounded-xl bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          >
+                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">Min 8 chars, include uppercase, lowercase & number</p>
+                      </div>
+
+                      {/* Owner Phone (Optional) */}
+                      <div>
+                        <label className="text-sm font-medium text-foreground mb-2 block">
+                          Owner Phone
+                        </label>
+                        <div className="relative">
+                          <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          <input
+                            type="tel"
+                            value={formData.ownerPhone}
+                            onChange={(e) => setFormData({ ...formData, ownerPhone: e.target.value })}
+                            placeholder="10-digit mobile number (optional)"
+                            pattern="[6-9][0-9]{9}"
+                            className="w-full pl-11 pr-4 py-3 rounded-xl bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Form Error */}
               {formError && (

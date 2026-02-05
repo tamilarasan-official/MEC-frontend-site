@@ -56,11 +56,25 @@ export interface Shop {
   updatedAt?: string
 }
 
+export interface OwnerDetails {
+  name: string
+  email: string
+  password: string
+  phone?: string
+}
+
 export interface ShopCreateData {
   name: string
   description?: string
   category: 'canteen' | 'laundry' | 'xerox' | 'other'
   ownerId?: string
+  ownerDetails?: OwnerDetails
+}
+
+export interface CreatedOwner {
+  id: string
+  email: string
+  name: string
 }
 
 export interface ShopUpdateData {
@@ -269,8 +283,8 @@ export async function getShops(): Promise<{
 
 export async function createShop(
   data: ShopCreateData
-): Promise<{ success: boolean; data?: Shop; error?: string }> {
-  const response = await api.post<Shop>('/superadmin/shops', data, true)
+): Promise<{ success: boolean; data?: { shop: Shop; owner?: CreatedOwner }; error?: string }> {
+  const response = await api.post<{ shop: Shop; owner?: CreatedOwner }>('/superadmin/shops', data, true)
 
   if (response.success && response.data) {
     return { success: true, data: response.data }
