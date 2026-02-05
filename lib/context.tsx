@@ -570,14 +570,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Update food item via API (superadmin)
   const updateFoodItem = async (item: FoodItem) => {
     try {
+      // Parse preparation time - backend expects number in minutes
+      const prepTimeValue = typeof item.preparationTime === 'string'
+        ? parseInt(item.preparationTime.replace(/[^0-9]/g, ''), 10) || 15
+        : item.preparationTime || 15
+
       const response = await api.put<{ data: FoodItem }>(`/superadmin/menu/${item.id}`, {
         name: item.name,
         description: item.description,
         price: item.price,
         costPrice: item.costPrice,
-        category: item.category,
-        image: item.image,
-        preparationTime: item.preparationTime,
+        categoryId: item.category, // Backend expects categoryId or category name
+        imageUrl: item.image, // Backend stores as imageUrl, not image
+        preparationTime: prepTimeValue,
         isAvailable: item.isAvailable,
       }, true)
 
@@ -598,15 +603,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Add food item via API (superadmin)
   const addFoodItem = async (item: FoodItem) => {
     try {
+      // Parse preparation time - backend expects number in minutes
+      const prepTimeValue = typeof item.preparationTime === 'string'
+        ? parseInt(item.preparationTime.replace(/[^0-9]/g, ''), 10) || 15
+        : item.preparationTime || 15
+
       const response = await api.post<{ data: FoodItem }>('/superadmin/menu', {
         shopId: item.shopId,
         name: item.name,
         description: item.description,
         price: item.price,
         costPrice: item.costPrice,
-        category: item.category,
-        image: item.image,
-        preparationTime: item.preparationTime,
+        categoryId: item.category, // Backend expects categoryId or category name
+        imageUrl: item.image, // Backend stores as imageUrl, not image
+        preparationTime: prepTimeValue,
         isAvailable: item.isAvailable !== false,
       }, true)
 

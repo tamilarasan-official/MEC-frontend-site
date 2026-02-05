@@ -72,7 +72,7 @@ export default function StudentDashboard() {
               <div>
                 <h1 className="text-lg font-semibold text-foreground">
                   {activeTab === 'stores' && !selectedStore && 'Stores'}
-                  {activeTab === 'stores' && selectedStore === 'canteen' && 'Madras Canteen'}
+                  {activeTab === 'stores' && selectedStore && 'Menu'}
                   {activeTab === 'history' && 'My Orders'}
                   {activeTab === 'offers' && 'Today\'s Offers'}
                   {activeTab === 'profile' && 'Profile'}
@@ -105,8 +105,8 @@ export default function StudentDashboard() {
         {activeTab === 'stores' && !selectedStore && (
           <Stores onSelectStore={(storeId) => setSelectedStore(storeId)} />
         )}
-        {activeTab === 'stores' && selectedStore === 'canteen' && (
-          <StudentHome onOrderSuccess={() => setActiveTab('history')} />
+        {activeTab === 'stores' && selectedStore && (
+          <StudentHome shopId={selectedStore} onOrderSuccess={() => setActiveTab('history')} />
         )}
         {activeTab === 'history' && <StudentOrders />}
         {activeTab === 'offers' && <StudentOffers />}

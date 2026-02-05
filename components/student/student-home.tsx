@@ -52,8 +52,21 @@ export function StudentHome({ onOrderSuccess, shopId = 'shop1' }: StudentHomePro
 
         // Fetch menu items
         const menuResult = await studentApi.getShopMenu(shopId)
+        console.log('[StudentHome] Menu API response:', {
+          success: menuResult.success,
+          itemCount: menuResult.data?.length,
+          firstItem: menuResult.data?.[0] ? {
+            name: menuResult.data[0].name,
+            image: menuResult.data[0].image,
+            imageUrl: menuResult.data[0].imageUrl
+          } : null
+        })
         if (menuResult.success && menuResult.data) {
           const items = menuResult.data.map(item => mapMenuItemToFoodItem(item, shopName))
+          console.log('[StudentHome] Mapped items:', {
+            count: items.length,
+            firstItemImage: items[0]?.image
+          })
           setMenuItems(items)
 
           // Extract unique categories from items

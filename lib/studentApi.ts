@@ -24,6 +24,7 @@ export interface MenuItemResponse {
   description: string;
   price: number;
   costPrice?: number;
+  image?: string;      // Backend returns both 'image' (with fallback) and 'imageUrl' (raw)
   imageUrl?: string;
   category: string;
   shopId: string;
@@ -137,9 +138,21 @@ export const studentApi = {
    * Get menu items for a shop
    */
   async getShopMenu(shopId: string): Promise<{ success: boolean; data?: MenuItemResponse[]; error?: string }> {
-    const response = await api.get<{ items: MenuItemResponse[] }>(`/shops/${shopId}/menu`);
+    const response = await api.get<MenuItemResponse[] | { items: MenuItemResponse[] }>(`/shops/${shopId}/menu`);
     if (response.success && response.data) {
-      return { success: true, data: response.data.items || response.data as unknown as MenuItemResponse[] };
+      // Backend returns array directly at data, not wrapped in { items: [] }
+      const items = Array.isArray(response.data) ? response.data : response.data.items;
+
+      // Debug log to check image fields
+      if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development' && items?.length > 0) {
+        console.log('[StudentAPI] Menu item sample:', {
+          name: items[0].name,
+          image: items[0].image,
+          imageUrl: items[0].imageUrl
+        });
+      }
+
+      return { success: true, data: items };
     }
     return { success: false, error: response.error?.message || 'Failed to fetch menu' };
   },
@@ -247,13 +260,26 @@ export const studentApi = {
 
 // Helper functions to map API responses to local types
 export function mapMenuItemToFoodItem(item: MenuItemResponse, shopName?: string): FoodItem {
+  // Backend returns both 'image' (with fallback) and 'imageUrl' (raw value)
+  // Prefer 'image' as it has the fallback already applied
+  const imageUrl = item.image || item.imageUrl || '/placeholder.svg';
+
+  // Debug: Log when image URL appears to be a placeholder or missing
+  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+    if (!item.image && !item.imageUrl) {
+      console.log('[mapMenuItemToFoodItem] Missing image for:', item.name, '- using placeholder');
+    } else if (imageUrl === '/placeholder.svg') {
+      console.log('[mapMenuItemToFoodItem] Placeholder image for:', item.name);
+    }
+  }
+
   return {
     id: item.id,
     name: item.name,
     description: item.description,
     price: item.price,
     costPrice: item.costPrice,
-    image: item.imageUrl || '/placeholder.svg',
+    image: imageUrl,
     category: item.category,
     shopId: item.shopId,
     shopName: shopName,

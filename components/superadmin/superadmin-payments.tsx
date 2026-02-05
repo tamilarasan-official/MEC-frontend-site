@@ -81,8 +81,10 @@ export function SuperAdminPayments() {
   const fetchStudents = async () => {
     setLoadingStudents(true)
     const result = await getUsers({ role: 'student', isApproved: true, isActive: true, limit: 100 })
-    if (result.success && result.data) {
+    if (result.success && result.data && result.data.users) {
       setStudents(result.data.users)
+    } else {
+      setStudents([])
     }
     setLoadingStudents(false)
   }
@@ -160,13 +162,13 @@ export function SuperAdminPayments() {
     setSendingReminders(false)
   }
 
-  const filteredStudents = students.filter(s =>
-    s.name.toLowerCase().includes(studentSearch.toLowerCase()) ||
+  const filteredStudents = (students || []).filter(s =>
+    s.name?.toLowerCase().includes(studentSearch.toLowerCase()) ||
     s.rollNumber?.toLowerCase().includes(studentSearch.toLowerCase()) ||
-    s.email.toLowerCase().includes(studentSearch.toLowerCase())
+    s.email?.toLowerCase().includes(studentSearch.toLowerCase())
   )
 
-  const filteredDetailsStudents = detailsStudents.filter(s =>
+  const filteredDetailsStudents = (detailsStudents || []).filter(s =>
     detailsFilter === 'all' || s.status === detailsFilter
   )
 

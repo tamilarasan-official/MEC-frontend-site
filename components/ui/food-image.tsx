@@ -29,6 +29,11 @@ export function FoodImage({
   // Determine if we have a valid image URL
   const hasValidSrc = src && src !== '/placeholder.svg' && src.trim() !== ''
 
+  // Debug log for image loading
+  if (process.env.NODE_ENV === 'development' && src) {
+    console.log('[FoodImage] Loading:', { src: src?.substring(0, 80), hasValidSrc, alt })
+  }
+
   // Handle image load
   const handleLoad = () => {
     setIsLoading(false)
@@ -38,6 +43,10 @@ export function FoodImage({
   const handleError = () => {
     setIsLoading(false)
     setHasError(true)
+    // Debug log for failed images
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[FoodImage] Failed to load image:', src, '- showing fallback')
+    }
   }
 
   // Show fallback if no valid src or error occurred

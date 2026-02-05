@@ -233,8 +233,8 @@ export function StudentOrders() {
                 )}
 
                 <div className="space-y-2">
-                  {order.items.map((item) => (
-                    <div key={item.id} className="flex items-center gap-3">
+                  {order.items.map((item, itemIndex) => (
+                    <div key={`${order.id}-${item.id || itemIndex}`} className="flex items-center gap-3">
                       <FoodImage
                         src={item.image}
                         alt={item.name}
