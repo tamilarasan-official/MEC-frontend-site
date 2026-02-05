@@ -19,31 +19,39 @@ export interface OrderStats {
   todayRevenue: number
 }
 
-// API response type (matches backend)
+// API response type (matches actual backend MongoDB response)
 interface ShopOrderApiResponse {
   id: string
-  userId: string
-  userName: string
+  _id: string
+  // User can be populated object or string
+  user: string | { _id: string; id?: string; name: string; phone?: string; email?: string; rollNumber?: string }
+  // Legacy flat fields (may be present in some responses)
+  userId?: string
+  userName?: string
   userEmail?: string
   userPhone?: string
+  // Shop can be populated object or string
+  shop: string | { _id: string; id?: string; name: string }
+  shopId?: string
+  shopName?: string
   items: Array<{
-    id: string
+    foodItem: string  // ObjectId reference
     name: string
     price: number
     offerPrice?: number
     quantity: number
+    subtotal: number
     imageUrl?: string
     category?: string
   }>
   total: number
-  shopId: string
-  shopName?: string
   status: 'pending' | 'preparing' | 'ready' | 'completed' | 'cancelled'
   pickupToken: string
+  placedAt: string
   createdAt: string
   completedAt?: string
-  handledBy?: string
-  qrCode?: string
+  handledBy?: string | { _id: string; name: string }
+  qrData?: string
 }
 
 export interface ShopOrder {
@@ -74,10 +82,46 @@ export interface ShopOrder {
 
 // Map API response to frontend ShopOrder type
 function mapApiResponseToShopOrder(order: ShopOrderApiResponse): ShopOrder {
+  // Handle user - can be populated object or string
+  let userId: string
+  let userName: string = ''
+  let userEmail: string | undefined
+  let userPhone: string | undefined
+
+  if (typeof order.user === 'object' && order.user !== null) {
+    userId = order.user._id || order.user.id || ''
+    userName = order.user.name || ''
+    userEmail = order.user.email
+    userPhone = order.user.phone
+  } else {
+    userId = order.userId || order.user || ''
+    userName = order.userName || ''
+    userEmail = order.userEmail
+    userPhone = order.userPhone
+  }
+
+  // Handle shop - can be populated object or string
+  let shopId: string
+  let shopName: string | undefined
+
+  if (typeof order.shop === 'object' && order.shop !== null) {
+    shopId = order.shop._id || order.shop.id || ''
+    shopName = order.shop.name
+  } else {
+    shopId = order.shopId || order.shop || ''
+    shopName = order.shopName
+  }
+
   return {
-    ...order,
+    id: order.id || order._id,
+    userId,
+    userName,
+    userEmail,
+    userPhone,
+    shopId,
+    shopName,
     items: order.items.map(item => ({
-      id: item.id,
+      id: item.foodItem,  // Use foodItem as id
       name: item.name,
       price: item.price,
       offerPrice: item.offerPrice,
@@ -85,6 +129,13 @@ function mapApiResponseToShopOrder(order: ShopOrderApiResponse): ShopOrder {
       image: item.imageUrl || '/placeholder.svg',
       category: item.category,
     })),
+    total: order.total,
+    status: order.status,
+    pickupToken: order.pickupToken,
+    createdAt: order.placedAt || order.createdAt,
+    completedAt: order.completedAt,
+    handledBy: typeof order.handledBy === 'object' ? order.handledBy?.name : order.handledBy,
+    qrCode: order.qrData,
   }
 }
 
