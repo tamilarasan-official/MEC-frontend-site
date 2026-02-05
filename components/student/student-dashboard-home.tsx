@@ -6,9 +6,10 @@ import { PendingPaymentsCard } from './pending-payments-card'
 
 interface StudentDashboardHomeProps {
   onNavigate: (tab: string) => void
+  onNavigateToCanteen?: () => void  // Direct navigation to canteen menu
 }
 
-export function StudentDashboardHome({ onNavigate }: StudentDashboardHomeProps) {
+export function StudentDashboardHome({ onNavigate, onNavigateToCanteen }: StudentDashboardHomeProps) {
   const { user, orders } = useApp()
   
   const activeOrders = orders.filter(o => 
@@ -56,15 +57,7 @@ export function StudentDashboardHome({ onNavigate }: StudentDashboardHomeProps) 
               </div>
             </div>
             
-            <div className="flex items-center gap-3 mt-6">
-              <button className="flex-1 flex items-center justify-center gap-2 h-12 rounded-2xl bg-primary-foreground text-primary font-semibold hover:bg-primary-foreground/90 transition-all active:scale-[0.98] shadow-lg">
-                <Plus className="w-5 h-5" />
-                Add Money
-              </button>
-              <button className="h-12 px-5 rounded-2xl bg-white/20 backdrop-blur-sm text-primary-foreground font-medium hover:bg-white/30 transition-all">
-                History
-              </button>
-            </div>
+            {/* Add Money & History moved to Profile/Settings */}
           </div>
           
           {/* Decorative elements */}
@@ -82,9 +75,9 @@ export function StudentDashboardHome({ onNavigate }: StudentDashboardHomeProps) 
         
         {/* Services Grid */}
         <div className="grid grid-cols-3 gap-3">
-          {/* Madras Canteen - Active */}
+          {/* Madras Canteen - Active - Goes directly to menu */}
           <button
-            onClick={() => onNavigate('stores')}
+            onClick={() => onNavigateToCanteen ? onNavigateToCanteen() : onNavigate('stores')}
             className="flex flex-col items-center p-4 rounded-2xl bg-card border border-border hover:border-primary/50 hover:bg-primary/5 transition-all text-center group active:scale-[0.97]"
           >
             <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">

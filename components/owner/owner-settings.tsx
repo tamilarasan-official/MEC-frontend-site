@@ -2,7 +2,7 @@
 
 import { useApp } from '@/lib/context'
 import { useRouter } from 'next/navigation'
-import { User, Bell, LogOut, ChevronRight, Store, Users } from 'lucide-react'
+import { User, Bell, LogOut, ChevronRight, Store } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export function OwnerSettings() {
@@ -35,19 +35,6 @@ export function OwnerSettings() {
 
       {/* Settings Options */}
       <div className="space-y-2">
-        <button className="w-full flex items-center justify-between p-4 rounded-xl bg-card border border-border hover:bg-card/80 transition-colors">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
-              <Users className="w-5 h-5 text-blue-500" />
-            </div>
-            <div className="text-left">
-              <p className="font-medium text-foreground">Staff Management</p>
-              <p className="text-sm text-muted-foreground">Manage captains</p>
-            </div>
-          </div>
-          <ChevronRight className="w-5 h-5 text-muted-foreground" />
-        </button>
-
         <button className="w-full flex items-center justify-between p-4 rounded-xl bg-card border border-border hover:bg-card/80 transition-colors">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">

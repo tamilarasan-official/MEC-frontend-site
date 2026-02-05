@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useApp } from '@/lib/context'
 import { BottomNav } from '@/components/bottom-nav'
@@ -8,17 +8,39 @@ import { StudentDashboardHome } from '@/components/student/student-dashboard-hom
 import { StudentHome } from '@/components/student/student-home'
 import { StudentProfile } from '@/components/student/student-profile'
 import { StudentOrders } from '@/components/student/student-orders'
-import { StudentOffers } from '@/components/student/student-offers'
-import { Stores } from '@/components/student/stores'
 import { Cart } from '@/components/student/cart'
 import { ShoppingCart, ChevronLeft } from 'lucide-react'
+import { studentApi } from '@/lib/studentApi'
 
 export default function StudentDashboard() {
   const [activeTab, setActiveTab] = useState('home')
   const [showCart, setShowCart] = useState(false)
   const [selectedStore, setSelectedStore] = useState<string | null>(null)
+  const [canteenShopId, setCanteenShopId] = useState<string | null>(null)
   const { user, cart, isHydrated } = useApp()
   const router = useRouter()
+
+  // Fetch canteen shop ID on mount
+  useEffect(() => {
+    async function fetchCanteenShop() {
+      try {
+        const result = await studentApi.getShops()
+        if (result.success && result.data) {
+          // Find the canteen shop (category: 'canteen' or name contains 'canteen')
+          const canteen = result.data.find(shop =>
+            shop.category === 'canteen' ||
+            shop.name.toLowerCase().includes('canteen')
+          )
+          if (canteen) {
+            setCanteenShopId(canteen.id)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch canteen shop:', error)
+      }
+    }
+    fetchCanteenShop()
+  }, [])
 
   useEffect(() => {
     if (!isHydrated) return
@@ -39,11 +61,15 @@ export default function StudentDashboard() {
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0)
 
   const handleNavigate = (tab: string) => {
-    if (tab === 'stores') {
-      // When navigating to stores from home, show stores list
-      setSelectedStore(null)
-    }
     setActiveTab(tab)
+  }
+
+  // Navigate directly to canteen menu (skip stores list)
+  const handleNavigateToCanteen = () => {
+    if (canteenShopId) {
+      setSelectedStore(canteenShopId)
+      setActiveTab('canteen')
+    }
   }
 
   return (
@@ -53,17 +79,12 @@ export default function StudentDashboard() {
         <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-xl border-b border-border">
           <div className="flex items-center justify-between px-4 py-3">
             <div className="flex items-center gap-3">
-              {(activeTab === 'stores' && selectedStore) && (
-                <button 
-                  onClick={() => setSelectedStore(null)}
-                  className="p-2 -ml-2 rounded-xl hover:bg-card transition-colors"
-                >
-                  <ChevronLeft className="w-5 h-5 text-foreground" />
-                </button>
-              )}
-              {(activeTab === 'stores' && !selectedStore) && (
-                <button 
-                  onClick={() => setActiveTab('home')}
+              {activeTab === 'canteen' && (
+                <button
+                  onClick={() => {
+                    setSelectedStore(null)
+                    setActiveTab('home')
+                  }}
                   className="p-2 -ml-2 rounded-xl hover:bg-card transition-colors"
                 >
                   <ChevronLeft className="w-5 h-5 text-foreground" />
@@ -71,10 +92,8 @@ export default function StudentDashboard() {
               )}
               <div>
                 <h1 className="text-lg font-semibold text-foreground">
-                  {activeTab === 'stores' && !selectedStore && 'Stores'}
-                  {activeTab === 'stores' && selectedStore && 'Menu'}
-                  {activeTab === 'history' && 'My Orders'}
-                  {activeTab === 'offers' && 'Today\'s Offers'}
+                  {activeTab === 'canteen' && 'Menu'}
+                  {activeTab === 'history' && 'Order History'}
                   {activeTab === 'profile' && 'Profile'}
                 </h1>
               </div>
@@ -101,15 +120,16 @@ export default function StudentDashboard() {
       )}
 
       <main className="px-4 py-4">
-        {activeTab === 'home' && <StudentDashboardHome onNavigate={handleNavigate} />}
-        {activeTab === 'stores' && !selectedStore && (
-          <Stores onSelectStore={(storeId) => setSelectedStore(storeId)} />
+        {activeTab === 'home' && (
+          <StudentDashboardHome
+            onNavigate={handleNavigate}
+            onNavigateToCanteen={handleNavigateToCanteen}
+          />
         )}
-        {activeTab === 'stores' && selectedStore && (
+        {activeTab === 'canteen' && selectedStore && (
           <StudentHome shopId={selectedStore} onOrderSuccess={() => setActiveTab('history')} />
         )}
         {activeTab === 'history' && <StudentOrders />}
-        {activeTab === 'offers' && <StudentOffers />}
         {activeTab === 'profile' && <StudentProfile />}
       </main>
 
@@ -126,11 +146,9 @@ export default function StudentDashboard() {
 
       <BottomNav
         role="student"
-        activeTab={activeTab}
+        activeTab={activeTab === 'canteen' ? 'home' : activeTab}
         onTabChange={(tab) => {
-          if (tab === 'stores') {
-            setSelectedStore(null)
-          }
+          setSelectedStore(null)
           setActiveTab(tab)
         }}
       />

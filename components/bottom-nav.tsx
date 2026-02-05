@@ -15,9 +15,7 @@ interface NavItem {
 const navConfig: Record<UserRole, NavItem[]> = {
   student: [
     { icon: Home, label: 'Home', id: 'home' },
-    { icon: Store, label: 'Stores', id: 'stores' },
-    { icon: History, label: 'Orders', id: 'history' },
-    { icon: Gift, label: 'Offers', id: 'offers' },
+    { icon: History, label: 'Order History', id: 'history' },
     { icon: User, label: 'Profile', id: 'profile' },
   ],
   captain: [
@@ -45,7 +43,7 @@ const navConfig: Record<UserRole, NavItem[]> = {
     { icon: TrendingUp, label: 'Analytics', id: 'analytics' },
     { icon: UtensilsCrossed, label: 'Menu', id: 'menu' },
     { icon: Store, label: 'Shops', id: 'shops' },
-    { icon: Settings, label: 'Settings', id: 'settings' },
+    { icon: Wallet, label: 'Payments', id: 'payments' },
   ],
 }
 

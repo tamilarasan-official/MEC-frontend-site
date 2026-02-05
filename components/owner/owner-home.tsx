@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useApp } from '@/lib/context'
-import { ClipboardList, PieChart, Menu, Settings, TrendingUp, IndianRupee, Clock, CheckCircle2, Package, Loader2, AlertCircle, RefreshCw } from 'lucide-react'
+import { ClipboardList, PieChart, TrendingUp, IndianRupee, Clock, CheckCircle2, Package, Loader2, AlertCircle, RefreshCw } from 'lucide-react'
 import { getShopStats, getActiveOrders, type ShopStats } from '@/lib/services/owner'
 import type { Order } from '@/lib/types'
 
@@ -155,27 +155,6 @@ export function OwnerHome({ onNavigate }: OwnerHomeProps) {
           <p className="text-sm text-blue-500 mt-1">View insights</p>
         </button>
 
-        <button
-          onClick={() => onNavigate('menu')}
-          className="flex flex-col items-start p-5 rounded-2xl bg-card border border-border hover:border-orange-500/30 transition-colors text-left"
-        >
-          <div className="w-12 h-12 rounded-2xl bg-orange-500/10 flex items-center justify-center mb-4">
-            <Menu className="w-6 h-6 text-orange-500" />
-          </div>
-          <h3 className="text-lg font-semibold text-foreground">Menu Items</h3>
-          <p className="text-sm text-orange-500 mt-1">{stats?.totalMenuItems || 0} items</p>
-        </button>
-
-        <button
-          onClick={() => onNavigate('settings')}
-          className="flex flex-col items-start p-5 rounded-2xl bg-card border border-border hover:border-muted-foreground/30 transition-colors text-left"
-        >
-          <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center mb-4">
-            <Settings className="w-6 h-6 text-muted-foreground" />
-          </div>
-          <h3 className="text-lg font-semibold text-foreground">Settings</h3>
-          <p className="text-sm text-muted-foreground mt-1">Manage shop</p>
-        </button>
       </div>
 
       {/* Active Orders Preview */}
