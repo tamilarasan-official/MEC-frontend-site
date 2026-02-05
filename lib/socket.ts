@@ -73,6 +73,9 @@ const getSocketUrl = (): string => {
   return 'http://localhost:3000'
 }
 
+// Track if we've logged connection errors to avoid spam
+let hasLoggedConnectionError = false
+
 /**
  * Initialize socket connection
  */
@@ -81,22 +84,31 @@ export function initializeSocket(): Socket {
     return socket
   }
 
+  // Return existing socket if it's connecting
+  if (socket) {
+    return socket
+  }
+
   const socketUrl = getSocketUrl()
   console.log('[Socket] Connecting to:', socketUrl)
 
   socket = io(socketUrl, {
-    transports: ['websocket', 'polling'],
+    // Use polling first (more reliable), then upgrade to websocket
+    transports: ['polling', 'websocket'],
     autoConnect: true,
     reconnection: true,
-    reconnectionAttempts: 5,
-    reconnectionDelay: 1000,
-    reconnectionDelayMax: 5000,
-    timeout: 20000,
+    reconnectionAttempts: 10,
+    reconnectionDelay: 2000,
+    reconnectionDelayMax: 10000,
+    timeout: 30000,
+    // Don't force new connection on reconnect
+    forceNew: false,
   })
 
   // Connection event handlers
   socket.on(SOCKET_EVENTS.CONNECT, () => {
     console.log('[Socket] Connected:', socket?.id)
+    hasLoggedConnectionError = false // Reset error flag on successful connect
   })
 
   socket.on(SOCKET_EVENTS.DISCONNECT, (reason: string) => {
@@ -104,7 +116,11 @@ export function initializeSocket(): Socket {
   })
 
   socket.on(SOCKET_EVENTS.CONNECT_ERROR, (error: Error) => {
-    console.error('[Socket] Connection error:', error.message)
+    // Only log connection error once to avoid console spam
+    if (!hasLoggedConnectionError) {
+      console.warn('[Socket] Connection unavailable - will retry. Real-time updates disabled until connected.')
+      hasLoggedConnectionError = true
+    }
   })
 
   return socket
