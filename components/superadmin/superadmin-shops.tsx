@@ -152,6 +152,12 @@ export function SuperAdminShops() {
       description: shop.description || '',
       category: shop.category,
       contactPhone: '',
+      // Reset owner fields for edit mode (owner can't be changed during edit)
+      createOwner: false,
+      ownerName: '',
+      ownerEmail: '',
+      ownerPassword: '',
+      ownerPhone: '',
     })
     setFormError(null)
     setShowModal(true)
@@ -259,6 +265,15 @@ export function SuperAdminShops() {
             phone: formData.ownerPhone.trim() || undefined,
           }
         }
+
+        // Debug log to verify data being sent
+        console.log('[SuperAdminShops] Creating shop with data:', {
+          name: createData.name,
+          category: createData.category,
+          hasOwnerDetails: !!createData.ownerDetails,
+          ownerEmail: createData.ownerDetails?.email,
+          createOwnerFlag: formData.createOwner,
+        })
 
         const result = await createShop(createData)
 

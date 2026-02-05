@@ -284,7 +284,23 @@ export async function getShops(): Promise<{
 export async function createShop(
   data: ShopCreateData
 ): Promise<{ success: boolean; data?: { shop: Shop; owner?: CreatedOwner }; error?: string }> {
+  console.log('[superadmin-api] createShop called with:', {
+    name: data.name,
+    category: data.category,
+    hasOwnerDetails: !!data.ownerDetails,
+    ownerEmail: data.ownerDetails?.email,
+  })
+
   const response = await api.post<{ shop: Shop; owner?: CreatedOwner }>('/superadmin/shops', data, true)
+
+  console.log('[superadmin-api] createShop response:', {
+    success: response.success,
+    hasData: !!response.data,
+    shopId: response.data?.shop?.id,
+    ownerCreated: !!response.data?.owner,
+    ownerEmail: response.data?.owner?.email,
+    error: response.error?.message,
+  })
 
   if (response.success && response.data) {
     return { success: true, data: response.data }
