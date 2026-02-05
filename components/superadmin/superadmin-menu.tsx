@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useApp } from '@/lib/context'
 import { Plus, Search, Edit2, Trash2, X, Check } from 'lucide-react'
 import { cn, getCategoryName } from '@/lib/utils'
@@ -13,6 +13,18 @@ export function SuperAdminMenu() {
   const [selectedShop, setSelectedShop] = useState<string>('all')
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingItem, setEditingItem] = useState<FoodItem | null>(null)
+
+  // Default to MEC CANTEEN if it exists
+  useEffect(() => {
+    if (shops.length > 0 && selectedShop === 'all') {
+      const mecCanteen = shops.find(shop =>
+        shop.name.toLowerCase().includes('mec') && shop.name.toLowerCase().includes('canteen')
+      )
+      if (mecCanteen) {
+        setSelectedShop(mecCanteen.id)
+      }
+    }
+  }, [shops, selectedShop])
 
   const filteredItems = foodItems.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -38,13 +50,21 @@ export function SuperAdminMenu() {
     }
   }
 
+  // Get selected shop name for display
+  const selectedShopName = selectedShop === 'all'
+    ? 'All Shops'
+    : shops.find(s => s.id === selectedShop)?.name || 'Unknown Shop'
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-foreground">Menu Management</h2>
-          <p className="text-sm text-muted-foreground">{foodItems.length} items across all shops</p>
+          <p className="text-sm text-muted-foreground">
+            {filteredItems.length} items in {selectedShopName}
+            {selectedShop !== 'all' && ` (${foodItems.length} total)`}
+          </p>
         </div>
         <button
           onClick={() => { setEditingItem(null); setShowAddModal(true) }}
@@ -89,11 +109,20 @@ export function SuperAdminMenu() {
               className="w-16 h-16 rounded-xl"
             />
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="font-semibold text-foreground truncate">{item.name}</h3>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{getCategoryName(item.category as string | { name?: string })}</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                  {getCategoryName(item.category as string | { name?: string })}
+                </span>
+                {!item.isAvailable && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-destructive/20 text-destructive">
+                    Unavailable
+                  </span>
+                )}
               </div>
-              <p className="text-sm text-muted-foreground">{item.shopName}</p>
+              <p className="text-sm text-primary font-medium">
+                {item.shopName || shops.find(s => s.id === item.shopId)?.name || 'No Shop Assigned'}
+              </p>
               <div className="flex items-center gap-3 mt-1">
                 <span className="text-sm text-foreground font-medium">Rs. {item.price}</span>
                 {item.costPrice && (

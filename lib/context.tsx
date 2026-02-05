@@ -119,7 +119,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Fetch shops from API
   const fetchShops = useCallback(async () => {
     try {
-      const response = await api.get<{ shops: Shop[] }>('/shops')
+      // Superadmin gets ALL shops (including inactive), others get only active
+      const currentUser = getStoredUser()
+      const params = currentUser?.role === 'superadmin' ? '?activeOnly=false' : ''
+
+      const response = await api.get<{ shops: Shop[] }>(`/shops${params}`)
       if (response.success && response.data?.shops) {
         setShops(response.data.shops)
       }
@@ -131,6 +135,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Fetch food items from API
   const fetchFoodItems = useCallback(async () => {
     try {
+      const currentUser = getStoredUser()
+
+      // Superadmin tries to get ALL items (including unavailable)
+      if (currentUser?.role === 'superadmin') {
+        const superadminResponse = await api.get<{ items: FoodItem[] }>('/superadmin/menu', true)
+        if (superadminResponse.success && superadminResponse.data?.items) {
+          setFoodItems(superadminResponse.data.items)
+          return
+        }
+        // Fallback to public endpoint if superadmin endpoint fails (e.g., not deployed yet)
+        console.log('[Context] Superadmin menu endpoint not available, using public endpoint')
+      }
+
+      // Public endpoint for regular users or as fallback
       const response = await api.get<{ items: FoodItem[] }>('/menu/items')
       if (response.success && response.data?.items) {
         setFoodItems(response.data.items)
