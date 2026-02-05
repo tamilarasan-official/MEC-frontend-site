@@ -286,7 +286,12 @@ export function SuperAdminShops() {
           setSuccessMessage(`Shop "${formData.name}" created successfully.${ownerMsg}`)
           closeModal()
         } else {
-          setFormError(result.error || 'Failed to create shop')
+          // Provide user-friendly error messages
+          let errorMsg = result.error || 'Failed to create shop'
+          if (errorMsg.toLowerCase().includes('already exists') || errorMsg.toLowerCase().includes('duplicate')) {
+            errorMsg = `An account with email "${formData.ownerEmail}" already exists. Please use a different email or create the shop without an owner and assign the existing user later.`
+          }
+          setFormError(errorMsg)
         }
       }
     } catch (err) {
