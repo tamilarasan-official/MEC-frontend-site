@@ -92,3 +92,59 @@ export interface DashboardStats {
   todayOrders: number
   todayRevenue: number
 }
+
+// ==================== AD-HOC PAYMENTS ====================
+
+export interface PaymentRequest {
+  id: string
+  title: string
+  description: string
+  amount: number
+  targetType: 'all' | 'selected' | 'department' | 'year'
+  targetDepartment?: string
+  targetYear?: number
+  dueDate?: string
+  status: 'active' | 'closed' | 'cancelled'
+  isVisibleOnDashboard: boolean
+  createdBy: {
+    id: string
+    name: string
+  }
+  totalTargetCount: number
+  paidCount: number
+  totalCollected: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface PendingPayment {
+  id: string
+  title: string
+  description: string
+  amount: number
+  dueDate?: string
+  status: 'pending' | 'paid'
+  requestCreatedAt: string
+}
+
+export interface StudentPaymentStatus {
+  id: string
+  name: string
+  email: string
+  rollNumber: string
+  department: string
+  year: number
+  status: 'pending' | 'paid'
+  paidAt?: string
+  amount: number
+}
+
+export interface PaymentSubmission {
+  id: string
+  title: string
+  description: string
+  amount: number
+  status: 'pending' | 'paid' | 'failed' | 'refunded'
+  paidAt?: string
+  createdAt: string
+}

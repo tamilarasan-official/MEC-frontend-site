@@ -2,6 +2,7 @@
 
 import { useApp } from '@/lib/context'
 import { ShoppingBag, Package, History, Bell, Wallet, Plus, UtensilsCrossed, Shirt, FileText, ChevronRight } from 'lucide-react'
+import { PendingPaymentsCard } from './pending-payments-card'
 
 interface StudentDashboardHomeProps {
   onNavigate: (tab: string) => void
@@ -71,6 +72,9 @@ export function StudentDashboardHome({ onNavigate }: StudentDashboardHomeProps) 
           <div className="absolute -left-8 -bottom-8 w-32 h-32 rounded-full bg-black/10 blur-xl" />
         </div>
       </div>
+
+      {/* Pending Payments Section */}
+      <PendingPaymentsCard onNavigate={onNavigate} />
 
       {/* Services Section */}
       <div className="space-y-4">

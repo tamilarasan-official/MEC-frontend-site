@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useApp } from '@/lib/context'
-import { TrendingUp, PieChart, UtensilsCrossed, Store, Settings, Users, ShoppingBag, IndianRupee, Loader2, AlertCircle } from 'lucide-react'
+import { TrendingUp, PieChart, UtensilsCrossed, Store, Settings, Users, ShoppingBag, IndianRupee, Loader2, AlertCircle, Wallet } from 'lucide-react'
 import { getDashboardStats, type DashboardStats } from '@/lib/services/superadmin-api'
 
 interface SuperAdminDashboardHomeProps {
@@ -145,6 +145,17 @@ export function SuperAdminDashboardHome({ onNavigate }: SuperAdminDashboardHomeP
           </div>
           <h3 className="text-lg font-semibold text-foreground">Shops</h3>
           <p className="text-sm text-blue-500 mt-1">{stats?.activeShops || 0} active</p>
+        </button>
+
+        <button
+          onClick={() => onNavigate('payments')}
+          className="flex flex-col items-start p-5 rounded-2xl bg-card border border-border hover:border-amber-500/30 transition-colors text-left"
+        >
+          <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center mb-4">
+            <Wallet className="w-6 h-6 text-amber-500" />
+          </div>
+          <h3 className="text-lg font-semibold text-foreground">Payments</h3>
+          <p className="text-sm text-amber-500 mt-1">Collect fees</p>
         </button>
 
         <button

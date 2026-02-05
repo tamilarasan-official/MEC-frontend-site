@@ -9,6 +9,7 @@ import { SuperAdminAnalytics } from '@/components/superadmin/superadmin-analytic
 import { SuperAdminMenu } from '@/components/superadmin/superadmin-menu'
 import { SuperAdminShops } from '@/components/superadmin/superadmin-shops'
 import { SuperAdminSettings } from '@/components/superadmin/superadmin-settings'
+import { SuperAdminPayments } from '@/components/superadmin/superadmin-payments'
 import { ChevronLeft } from 'lucide-react'
 
 export default function SuperAdminDashboard() {
@@ -37,6 +38,7 @@ export default function SuperAdminDashboard() {
       case 'analytics': return 'Analytics & Reports'
       case 'menu': return 'Menu Management'
       case 'shops': return 'Shop Management'
+      case 'payments': return 'Payment Requests'
       case 'settings': return 'Settings'
       default: return 'SuperAdmin'
     }
@@ -72,6 +74,7 @@ export default function SuperAdminDashboard() {
         {activeTab === 'analytics' && <SuperAdminAnalytics />}
         {activeTab === 'menu' && <SuperAdminMenu />}
         {activeTab === 'shops' && <SuperAdminShops />}
+        {activeTab === 'payments' && <SuperAdminPayments />}
         {activeTab === 'settings' && <SuperAdminSettings />}
       </main>
 
