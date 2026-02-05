@@ -53,8 +53,8 @@ export interface OrderResponse {
   shopId?: string;
   shopName?: string;
   items: Array<{
-    foodItem?: string;  // Backend uses foodItem
-    id?: string;        // Legacy support
+    foodItem?: string | { _id?: string; id?: string; name?: string; imageUrl?: string };  // Can be populated
+    id?: string | { _id?: string; id?: string };  // Legacy support, can also be populated
     foodItemId?: string;
     name: string;
     quantity: number;
@@ -335,20 +335,38 @@ export function mapOrderResponseToOrder(order: OrderResponse): Order {
     shopName,
     orderNumber: order.orderNumber,
     qrData: order.qrData,
-    items: order.items.map(item => ({
-      id: item.foodItem || item.id || item.foodItemId || '',
-      name: item.name,
-      description: '',
-      price: item.price,
-      image: item.imageUrl || '/placeholder.svg',
-      category: item.category || '',
-      shopId: shopId,
-      isAvailable: true,
-      rating: 4.0,
-      preparationTime: '15 min',
-      quantity: item.quantity,
-      offerPrice: item.offerPrice,
-    })),
+    items: order.items.map(item => {
+      // Handle foodItem being an object (populated) or string
+      let itemId: string = ''
+      let itemImage: string = item.imageUrl || '/placeholder.svg'
+
+      if (typeof item.foodItem === 'object' && item.foodItem !== null) {
+        const foodItem = item.foodItem as { _id?: string; id?: string; imageUrl?: string }
+        itemId = foodItem._id || foodItem.id || ''
+        if (foodItem.imageUrl) itemImage = foodItem.imageUrl
+      } else if (typeof item.foodItem === 'string') {
+        itemId = item.foodItem
+      } else if (item.id) {
+        itemId = typeof item.id === 'string' ? item.id : ''
+      } else if (item.foodItemId) {
+        itemId = item.foodItemId
+      }
+
+      return {
+        id: itemId,
+        name: item.name,
+        description: '',
+        price: item.price,
+        image: itemImage,
+        category: item.category || '',
+        shopId: shopId,
+        isAvailable: true,
+        rating: 4.0,
+        preparationTime: '15 min',
+        quantity: item.quantity,
+        offerPrice: item.offerPrice,
+      }
+    }),
     total: order.total,
     status: order.status,
     pickupToken: order.pickupToken,

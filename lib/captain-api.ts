@@ -35,7 +35,7 @@ interface ShopOrderApiResponse {
   shopId?: string
   shopName?: string
   items: Array<{
-    foodItem: string  // ObjectId reference
+    foodItem: string | { _id?: string; id?: string; name?: string; imageUrl?: string }  // Can be populated
     name: string
     price: number
     offerPrice?: number
@@ -120,15 +120,29 @@ function mapApiResponseToShopOrder(order: ShopOrderApiResponse): ShopOrder {
     userPhone,
     shopId,
     shopName,
-    items: order.items.map(item => ({
-      id: item.foodItem,  // Use foodItem as id
-      name: item.name,
-      price: item.price,
-      offerPrice: item.offerPrice,
-      quantity: item.quantity,
-      image: item.imageUrl || '/placeholder.svg',
-      category: item.category,
-    })),
+    items: order.items.map(item => {
+      // Handle foodItem being an object (populated) or string
+      let itemId: string = ''
+      let itemImage: string = item.imageUrl || '/placeholder.svg'
+
+      if (typeof item.foodItem === 'object' && item.foodItem !== null) {
+        const foodItem = item.foodItem as { _id?: string; id?: string; imageUrl?: string }
+        itemId = foodItem._id || foodItem.id || ''
+        if (foodItem.imageUrl) itemImage = foodItem.imageUrl
+      } else if (typeof item.foodItem === 'string') {
+        itemId = item.foodItem
+      }
+
+      return {
+        id: itemId,
+        name: item.name,
+        price: item.price,
+        offerPrice: item.offerPrice,
+        quantity: item.quantity,
+        image: itemImage,
+        category: item.category,
+      }
+    }),
     total: order.total,
     status: order.status,
     pickupToken: order.pickupToken,

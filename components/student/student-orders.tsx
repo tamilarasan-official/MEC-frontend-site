@@ -233,8 +233,13 @@ export function StudentOrders() {
                 )}
 
                 <div className="space-y-2">
-                  {order.items.map((item, itemIndex) => (
-                    <div key={`${order.id}-${item.id || itemIndex}`} className="flex items-center gap-3">
+                  {order.items.map((item, itemIndex) => {
+                    // Handle item.id being an object (populated foodItem) or string
+                    const itemId = typeof item.id === 'object' && item.id !== null
+                      ? (item.id as { _id?: string; id?: string })._id || (item.id as { _id?: string; id?: string }).id
+                      : item.id
+                    return (
+                    <div key={`${order.id}-${itemId || itemIndex}`} className="flex items-center gap-3">
                       <FoodImage
                         src={item.image}
                         alt={item.name}
@@ -248,7 +253,8 @@ export function StudentOrders() {
                         Rs. {(item.isOffer && item.offerPrice ? item.offerPrice : item.price) * item.quantity}
                       </p>
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
 
                 <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
