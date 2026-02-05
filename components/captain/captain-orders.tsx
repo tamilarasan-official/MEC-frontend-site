@@ -1,12 +1,22 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useApp } from '@/lib/context'
 import { getActiveOrders, updateOrderStatus as apiUpdateOrderStatus, type ShopOrder } from '@/lib/captain-api'
-import { Clock, ChefHat, CheckCircle2, XCircle, Package, User, AlertCircle, RefreshCw, Loader2 } from 'lucide-react'
+import { Clock, ChefHat, CheckCircle2, XCircle, Package, User, AlertCircle, RefreshCw, Loader2, Wifi, WifiOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { FoodImage } from '@/components/ui/food-image'
+import {
+  initializeSocket,
+  joinShopRoom,
+  leaveShopRoom,
+  onNewOrder,
+  onOrderStatusChange,
+  onOrderCancelled,
+  SOCKET_EVENTS,
+  type OrderEventPayload,
+} from '@/lib/socket'
 
 type FilterStatus = 'all' | 'pending' | 'preparing' | 'ready'
 
@@ -19,6 +29,9 @@ export function CaptainOrders() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null)
   const [updateError, setUpdateError] = useState<string | null>(null)
+  const [isSocketConnected, setIsSocketConnected] = useState(false)
+  const [newOrderAlert, setNewOrderAlert] = useState<string | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
 
   const fetchOrders = useCallback(async (showRefreshing = false) => {
     if (showRefreshing) {
@@ -44,18 +57,102 @@ export function CaptainOrders() {
     }
   }, [])
 
+  // Initialize socket connection and real-time updates
   useEffect(() => {
-    // Only fetch when auth is ready
+    // Only proceed when auth is ready and user has a shopId
     if (!isHydrated || !user) return
 
+    const shopId = user.shopId
+    if (!shopId) {
+      console.log('[CaptainOrders] No shopId found for user')
+      fetchOrders()
+      return
+    }
+
+    // Initial fetch
     fetchOrders()
 
-    // Set up polling for real-time updates every 15 seconds
+    // Initialize socket connection
+    const socket = initializeSocket()
+
+    // Track connection status
+    const handleConnect = () => {
+      console.log('[CaptainOrders] Socket connected, joining shop room:', shopId)
+      setIsSocketConnected(true)
+      joinShopRoom(shopId)
+    }
+
+    const handleDisconnect = () => {
+      console.log('[CaptainOrders] Socket disconnected')
+      setIsSocketConnected(false)
+    }
+
+    socket.on(SOCKET_EVENTS.CONNECT, handleConnect)
+    socket.on(SOCKET_EVENTS.DISCONNECT, handleDisconnect)
+
+    // If already connected, join room immediately
+    if (socket.connected) {
+      handleConnect()
+    }
+
+    // Handle new order event - add to list
+    const unsubNewOrder = onNewOrder((orderData: OrderEventPayload) => {
+      console.log('[CaptainOrders] New order received:', orderData)
+
+      // Show alert
+      setNewOrderAlert(`New order #${orderData.orderNumber}!`)
+      setTimeout(() => setNewOrderAlert(null), 5000)
+
+      // Play notification sound (optional)
+      if (audioRef.current) {
+        audioRef.current.play().catch(() => {})
+      }
+
+      // Refresh orders to get full order data
+      fetchOrders(true)
+    })
+
+    // Handle status change event
+    const unsubStatusChange = onOrderStatusChange((orderData: OrderEventPayload) => {
+      console.log('[CaptainOrders] Order status changed:', orderData)
+
+      // Update local state
+      setOrders(prev => {
+        // If order is completed or cancelled, remove it
+        if (orderData.status === 'completed' || orderData.status === 'cancelled') {
+          return prev.filter(o => o.id !== orderData.orderId)
+        }
+        // Otherwise update the status
+        return prev.map(o =>
+          o.id === orderData.orderId ? { ...o, status: orderData.status } : o
+        )
+      })
+    })
+
+    // Handle order cancelled
+    const unsubCancelled = onOrderCancelled((orderData: OrderEventPayload) => {
+      console.log('[CaptainOrders] Order cancelled:', orderData)
+      setOrders(prev => prev.filter(o => o.id !== orderData.orderId))
+    })
+
+    // Fallback polling every 30 seconds (reduced from 15 since we have real-time)
     const interval = setInterval(() => {
       fetchOrders(true)
-    }, 15000)
+    }, 30000)
 
-    return () => clearInterval(interval)
+    // Cleanup
+    return () => {
+      console.log('[CaptainOrders] Cleaning up socket listeners')
+      socket.off(SOCKET_EVENTS.CONNECT, handleConnect)
+      socket.off(SOCKET_EVENTS.DISCONNECT, handleDisconnect)
+      unsubNewOrder()
+      unsubStatusChange()
+      unsubCancelled()
+      if (shopId) {
+        leaveShopRoom(shopId)
+      }
+      clearInterval(interval)
+    }
   }, [fetchOrders, isHydrated, user])
 
   const handleUpdateStatus = async (orderId: string, newStatus: 'preparing' | 'ready' | 'completed' | 'cancelled') => {
@@ -180,6 +277,16 @@ export function CaptainOrders() {
 
   return (
     <div className="space-y-4">
+      {/* New order alert */}
+      {newOrderAlert && (
+        <div className="fixed top-4 left-4 right-4 z-50 p-4 rounded-xl bg-primary text-primary-foreground shadow-lg animate-in slide-in-from-top">
+          <div className="flex items-center gap-3">
+            <Package className="w-5 h-5 flex-shrink-0 animate-bounce" />
+            <p className="text-sm font-medium">{newOrderAlert}</p>
+          </div>
+        </div>
+      )}
+
       {/* Update error toast */}
       {updateError && (
         <div className="fixed top-4 left-4 right-4 z-50 p-4 rounded-xl bg-destructive text-destructive-foreground shadow-lg animate-in slide-in-from-top">
@@ -189,6 +296,21 @@ export function CaptainOrders() {
           </div>
         </div>
       )}
+
+      {/* Real-time connection indicator */}
+      <div className="flex items-center gap-2 text-xs">
+        {isSocketConnected ? (
+          <span className="flex items-center gap-1 text-emerald-600">
+            <Wifi className="w-3 h-3" />
+            Live
+          </span>
+        ) : (
+          <span className="flex items-center gap-1 text-muted-foreground">
+            <WifiOff className="w-3 h-3" />
+            Polling
+          </span>
+        )}
+      </div>
 
       {/* Filter Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2 -mx-4 px-4">

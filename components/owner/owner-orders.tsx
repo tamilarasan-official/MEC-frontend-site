@@ -1,26 +1,39 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useApp } from '@/lib/context'
-import { Clock, ChefHat, CheckCircle2, XCircle, Package, User, Loader2, AlertCircle, RefreshCw } from 'lucide-react'
+import { Clock, ChefHat, CheckCircle2, XCircle, Package, User, Loader2, AlertCircle, RefreshCw, Wifi, WifiOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { FoodImage } from '@/components/ui/food-image'
 import { getActiveOrders, updateOrderStatus as updateOrderStatusApi } from '@/lib/services/owner'
 import type { Order } from '@/lib/types'
+import {
+  initializeSocket,
+  joinShopRoom,
+  leaveShopRoom,
+  onNewOrder,
+  onOrderStatusChange,
+  onOrderCancelled,
+  SOCKET_EVENTS,
+  type OrderEventPayload,
+} from '@/lib/socket'
 
 type FilterStatus = 'all' | 'pending' | 'preparing' | 'ready'
 
 export function OwnerOrders() {
-  const { user } = useApp()
+  const { user, isHydrated } = useApp()
 
   const [orders, setOrders] = useState<Order[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<FilterStatus>('all')
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null)
+  const [isSocketConnected, setIsSocketConnected] = useState(false)
+  const [newOrderAlert, setNewOrderAlert] = useState<string | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
 
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     setIsLoading(true)
     setError(null)
 
@@ -45,15 +58,105 @@ export function OwnerOrders() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [])
 
+  // Initialize socket connection and real-time updates
   useEffect(() => {
+    // Only proceed when auth is ready and user has a shopId
+    if (!isHydrated || !user) return
+
+    const shopId = user.shopId
+    if (!shopId) {
+      console.log('[OwnerOrders] No shopId found for user')
+      fetchOrders()
+      return
+    }
+
+    // Initial fetch
     fetchOrders()
 
-    // Poll for new orders every 30 seconds
-    const interval = setInterval(fetchOrders, 30000)
-    return () => clearInterval(interval)
-  }, [])
+    // Initialize socket connection
+    const socket = initializeSocket()
+
+    // Track connection status
+    const handleConnect = () => {
+      console.log('[OwnerOrders] Socket connected, joining shop room:', shopId)
+      setIsSocketConnected(true)
+      joinShopRoom(shopId)
+    }
+
+    const handleDisconnect = () => {
+      console.log('[OwnerOrders] Socket disconnected')
+      setIsSocketConnected(false)
+    }
+
+    socket.on(SOCKET_EVENTS.CONNECT, handleConnect)
+    socket.on(SOCKET_EVENTS.DISCONNECT, handleDisconnect)
+
+    // If already connected, join room immediately
+    if (socket.connected) {
+      handleConnect()
+    }
+
+    // Handle new order event - add to list
+    const unsubNewOrder = onNewOrder((orderData: OrderEventPayload) => {
+      console.log('[OwnerOrders] New order received:', orderData)
+
+      // Show alert
+      setNewOrderAlert(`New order #${orderData.orderNumber}!`)
+      setTimeout(() => setNewOrderAlert(null), 5000)
+
+      // Play notification sound (optional)
+      if (audioRef.current) {
+        audioRef.current.play().catch(() => {})
+      }
+
+      // Refresh orders to get full order data
+      fetchOrders()
+    })
+
+    // Handle status change event
+    const unsubStatusChange = onOrderStatusChange((orderData: OrderEventPayload) => {
+      console.log('[OwnerOrders] Order status changed:', orderData)
+
+      // Update local state
+      setOrders(prev => {
+        // If order is completed or cancelled, remove it
+        if (orderData.status === 'completed' || orderData.status === 'cancelled') {
+          return prev.filter(o => o.id !== orderData.orderId)
+        }
+        // Otherwise update the status
+        return prev.map(o =>
+          o.id === orderData.orderId ? { ...o, status: orderData.status } : o
+        )
+      })
+    })
+
+    // Handle order cancelled
+    const unsubCancelled = onOrderCancelled((orderData: OrderEventPayload) => {
+      console.log('[OwnerOrders] Order cancelled:', orderData)
+      setOrders(prev => prev.filter(o => o.id !== orderData.orderId))
+    })
+
+    // Fallback polling every 30 seconds (reduced since we have real-time)
+    const interval = setInterval(() => {
+      fetchOrders()
+    }, 30000)
+
+    // Cleanup
+    return () => {
+      console.log('[OwnerOrders] Cleaning up socket listeners')
+      socket.off(SOCKET_EVENTS.CONNECT, handleConnect)
+      socket.off(SOCKET_EVENTS.DISCONNECT, handleDisconnect)
+      unsubNewOrder()
+      unsubStatusChange()
+      unsubCancelled()
+      if (shopId) {
+        leaveShopRoom(shopId)
+      }
+      clearInterval(interval)
+    }
+  }, [fetchOrders, isHydrated, user])
 
   const handleUpdateStatus = async (orderId: string, newStatus: Order['status']) => {
     setUpdatingOrderId(orderId)
@@ -142,8 +245,33 @@ export function OwnerOrders() {
 
   return (
     <div className="space-y-4">
+      {/* New order alert */}
+      {newOrderAlert && (
+        <div className="fixed top-4 left-4 right-4 z-50 p-4 rounded-xl bg-primary text-primary-foreground shadow-lg animate-in slide-in-from-top">
+          <div className="flex items-center gap-3">
+            <Package className="w-5 h-5 flex-shrink-0 animate-bounce" />
+            <p className="text-sm font-medium">{newOrderAlert}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Real-time connection indicator */}
+      <div className="flex items-center gap-2 text-xs">
+        {isSocketConnected ? (
+          <span className="flex items-center gap-1 text-emerald-600">
+            <Wifi className="w-3 h-3" />
+            Live
+          </span>
+        ) : (
+          <span className="flex items-center gap-1 text-muted-foreground">
+            <WifiOff className="w-3 h-3" />
+            Polling
+          </span>
+        )}
+      </div>
+
       {/* Filter Tabs */}
-      <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4">
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 -mx-4 px-4">
         {statusFilters.map(({ label, value, count }) => (
           <button
             key={value}
@@ -158,16 +286,12 @@ export function OwnerOrders() {
             {label} ({count})
           </button>
         ))}
-      </div>
-
-      {/* Refresh Button */}
-      <div className="flex justify-end">
         <button
-          onClick={fetchOrders}
-          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          onClick={() => fetchOrders()}
+          disabled={isLoading}
+          className="flex-shrink-0 p-2 rounded-full bg-card border border-border hover:bg-muted transition-colors disabled:opacity-50 ml-auto"
         >
-          <RefreshCw className="w-4 h-4" />
-          Refresh
+          <RefreshCw className={`w-4 h-4 text-muted-foreground ${isLoading ? 'animate-spin' : ''}`} />
         </button>
       </div>
 

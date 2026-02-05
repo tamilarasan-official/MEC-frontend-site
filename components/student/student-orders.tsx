@@ -1,13 +1,23 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useApp } from '@/lib/context'
 import { studentApi, mapOrderResponseToOrder } from '@/lib/studentApi'
-import { Clock, CheckCircle2, XCircle, ChefHat, Package, QrCode, Loader2, AlertCircle, RefreshCw, X } from 'lucide-react'
+import { Clock, CheckCircle2, XCircle, ChefHat, Package, QrCode, Loader2, AlertCircle, RefreshCw, X, Wifi, WifiOff, Bell } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { FoodImage } from '@/components/ui/food-image'
 import { OrderQRCard } from '@/components/order-qr-card'
 import type { Order } from '@/lib/types'
+import {
+  initializeSocket,
+  joinUserRoom,
+  leaveUserRoom,
+  onOrderStatusChange,
+  onOrderReady,
+  onOrderCancelled,
+  SOCKET_EVENTS,
+  type OrderEventPayload,
+} from '@/lib/socket'
 
 const statusConfig = {
   pending: { icon: Clock, label: 'Pending', color: 'text-yellow-500 bg-yellow-500/10' },
@@ -18,20 +28,17 @@ const statusConfig = {
 }
 
 export function StudentOrders() {
-  const { user } = useApp()
+  const { user, isHydrated } = useApp()
   const [orders, setOrders] = useState<Order[]>([])
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null)
   const [cancelError, setCancelError] = useState<string | null>(null)
+  const [isSocketConnected, setIsSocketConnected] = useState(false)
+  const [statusAlert, setStatusAlert] = useState<string | null>(null)
 
-  // Fetch orders from API
-  useEffect(() => {
-    fetchOrders()
-  }, [])
-
-  async function fetchOrders() {
+  const fetchOrders = useCallback(async () => {
     setIsLoading(true)
     setError(null)
 
@@ -51,7 +58,112 @@ export function StudentOrders() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [])
+
+  // Initialize socket connection and real-time updates
+  useEffect(() => {
+    // Only proceed when auth is ready and user is available
+    if (!isHydrated || !user) return
+
+    const userId = user.id
+    if (!userId) {
+      console.log('[StudentOrders] No userId found for user')
+      fetchOrders()
+      return
+    }
+
+    // Initial fetch
+    fetchOrders()
+
+    // Initialize socket connection
+    const socket = initializeSocket()
+
+    // Track connection status
+    const handleConnect = () => {
+      console.log('[StudentOrders] Socket connected, joining user room:', userId)
+      setIsSocketConnected(true)
+      joinUserRoom(userId)
+    }
+
+    const handleDisconnect = () => {
+      console.log('[StudentOrders] Socket disconnected')
+      setIsSocketConnected(false)
+    }
+
+    socket.on(SOCKET_EVENTS.CONNECT, handleConnect)
+    socket.on(SOCKET_EVENTS.DISCONNECT, handleDisconnect)
+
+    // If already connected, join room immediately
+    if (socket.connected) {
+      handleConnect()
+    }
+
+    // Handle status change event
+    const unsubStatusChange = onOrderStatusChange((orderData: OrderEventPayload) => {
+      console.log('[StudentOrders] Order status changed:', orderData)
+
+      // Show alert
+      const statusMessages: Record<string, string> = {
+        preparing: `Order #${orderData.pickupToken} is being prepared!`,
+        ready: `Order #${orderData.pickupToken} is ready for pickup!`,
+        completed: `Order #${orderData.pickupToken} completed!`,
+        cancelled: `Order #${orderData.pickupToken} was cancelled`,
+      }
+      const alertMsg = statusMessages[orderData.status]
+      if (alertMsg) {
+        setStatusAlert(alertMsg)
+        setTimeout(() => setStatusAlert(null), 5000)
+      }
+
+      // Update local state
+      setOrders(prev =>
+        prev.map(o =>
+          o.id === orderData.orderId ? { ...o, status: orderData.status } : o
+        )
+      )
+    })
+
+    // Handle order ready event (special notification)
+    const unsubReady = onOrderReady((orderData: OrderEventPayload) => {
+      console.log('[StudentOrders] Order ready:', orderData)
+      setStatusAlert(`🎉 Order #${orderData.pickupToken} is ready for pickup!`)
+      setTimeout(() => setStatusAlert(null), 7000)
+
+      // Update local state
+      setOrders(prev =>
+        prev.map(o =>
+          o.id === orderData.orderId ? { ...o, status: 'ready' } : o
+        )
+      )
+    })
+
+    // Handle order cancelled
+    const unsubCancelled = onOrderCancelled((orderData: OrderEventPayload) => {
+      console.log('[StudentOrders] Order cancelled:', orderData)
+      setStatusAlert(`Order #${orderData.pickupToken} was cancelled`)
+      setTimeout(() => setStatusAlert(null), 5000)
+
+      // Update local state
+      setOrders(prev =>
+        prev.map(o =>
+          o.id === orderData.orderId ? { ...o, status: 'cancelled' } : o
+        )
+      )
+    })
+
+    // Cleanup
+    return () => {
+      console.log('[StudentOrders] Cleaning up socket listeners')
+      socket.off(SOCKET_EVENTS.CONNECT, handleConnect)
+      socket.off(SOCKET_EVENTS.DISCONNECT, handleDisconnect)
+      unsubStatusChange()
+      unsubReady()
+      unsubCancelled()
+      if (userId) {
+        leaveUserRoom(userId)
+      }
+    }
+  }, [fetchOrders, isHydrated, user])
 
   const handleCancelOrder = async (orderId: string) => {
     setCancellingOrderId(orderId)
@@ -123,10 +235,33 @@ export function StudentOrders() {
 
   return (
     <div className="space-y-5">
+      {/* Status alert */}
+      {statusAlert && (
+        <div className="fixed top-4 left-4 right-4 z-50 p-4 rounded-xl bg-primary text-primary-foreground shadow-lg animate-in slide-in-from-top">
+          <div className="flex items-center gap-3">
+            <Bell className="w-5 h-5 flex-shrink-0 animate-bounce" />
+            <p className="text-sm font-medium">{statusAlert}</p>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-foreground">My Orders</h2>
-          <p className="text-sm text-muted-foreground mt-1">Track active orders and view history</p>
+          <div className="flex items-center gap-2 mt-1">
+            <p className="text-sm text-muted-foreground">Track active orders and view history</p>
+            {/* Real-time connection indicator */}
+            {isSocketConnected ? (
+              <span className="flex items-center gap-1 text-xs text-emerald-600">
+                <Wifi className="w-3 h-3" />
+                Live
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                <WifiOff className="w-3 h-3" />
+              </span>
+            )}
+          </div>
         </div>
         <button
           onClick={handleRetry}
