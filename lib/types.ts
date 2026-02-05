@@ -51,6 +51,7 @@ export interface CartItem extends FoodItem {
 
 export interface Order {
   id: string
+  orderNumber?: string
   userId: string
   userName: string
   items: CartItem[]
@@ -59,6 +60,7 @@ export interface Order {
   shopName?: string
   status: 'pending' | 'preparing' | 'ready' | 'completed' | 'cancelled'
   pickupToken: string
+  qrData?: string
   createdAt: Date
   completedAt?: Date
   handledBy?: string

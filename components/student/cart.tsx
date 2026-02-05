@@ -28,26 +28,35 @@ export function Cart({ onClose, onOrderSuccess }: CartProps) {
     return Math.floor(1000 + Math.random() * 9000).toString()
   }
 
-  const handlePlaceOrder = () => {
-    if (!user || cart.length === 0) return
-    
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false)
+
+  const handlePlaceOrder = async () => {
+    if (!user || cart.length === 0 || isPlacingOrder) return
+
     const hasBalance = user.balance && user.balance >= cartTotal
-    
+
     if (!hasBalance) {
       setOrderStatus('failure')
       return
     }
 
-    const token = generatePickupToken()
-    const orderId = `ORD${Date.now()}`
+    setIsPlacingOrder(true)
+
     const orderItems = [...cart]
 
     // Get shopId from the first item (assuming all items are from same shop for now)
-    const shopId = orderItems[0]?.shopId || 'shop1'
+    const shopId = orderItems[0]?.shopId
     const shopName = orderItems[0]?.shopName || 'Madras Canteen'
 
+    if (!shopId) {
+      console.error('No shopId found in cart items')
+      setOrderStatus('failure')
+      setIsPlacingOrder(false)
+      return
+    }
+
     const newOrder: Order = {
-      id: orderId,
+      id: `temp-${Date.now()}`, // Temporary ID, backend will generate real one
       userId: user.id,
       userName: user.name,
       items: orderItems,
@@ -55,21 +64,35 @@ export function Cart({ onClose, onOrderSuccess }: CartProps) {
       shopId,
       shopName,
       status: 'pending',
-      pickupToken: token,
+      pickupToken: '', // Backend will generate
       createdAt: new Date()
     }
 
-    // Set order details for QR display
-    setOrderDetails({
-      orderId,
-      pickupToken: token,
-      total: cartTotal,
-      items: orderItems,
-    })
+    try {
+      // Call API and wait for response
+      const createdOrder = await addOrder(newOrder)
 
-    addOrder(newOrder)
-    clearCart()
-    setOrderStatus('success')
+      if (createdOrder && createdOrder.id) {
+        // Order successfully created - use the backend-generated details
+        setOrderDetails({
+          orderId: createdOrder.orderNumber || createdOrder.id,
+          pickupToken: createdOrder.pickupToken || '',
+          total: createdOrder.total || cartTotal,
+          items: orderItems,
+        })
+        clearCart()
+        setOrderStatus('success')
+      } else {
+        // Order creation failed
+        console.error('Order creation failed - no order returned')
+        setOrderStatus('failure')
+      }
+    } catch (error) {
+      console.error('Order placement error:', error)
+      setOrderStatus('failure')
+    } finally {
+      setIsPlacingOrder(false)
+    }
   }
 
   const handleAnimationComplete = () => {
@@ -212,10 +235,10 @@ export function Cart({ onClose, onOrderSuccess }: CartProps) {
           
           <Button
             onClick={handlePlaceOrder}
-            disabled={!user?.balance || user.balance < cartTotal}
+            disabled={!user?.balance || user.balance < cartTotal || isPlacingOrder}
             className="w-full h-14 text-lg font-semibold bg-gradient-to-r from-primary to-emerald-500 text-primary-foreground hover:opacity-90 rounded-2xl shadow-lg shadow-primary/20 transition-all active:scale-[0.98] disabled:opacity-50 disabled:shadow-none"
           >
-            Pay Rs.{cartTotal}
+            {isPlacingOrder ? 'Processing...' : `Pay Rs.${cartTotal}`}
           </Button>
         </div>
       )}
